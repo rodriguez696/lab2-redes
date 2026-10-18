@@ -1,0 +1,7 @@
+# Compila el programa P4 y levanta el switch BMv2.
+# Puertos P4: 1 = eth0 (rcla), 2 = eth1, 3 = eth2, ...
+p4c-bm2-ss --arch v1model -o /switch.json /switch.p4
+simple_switch -i 1@eth0 -i 2@eth1 /switch.json > /var/log/simple_switch.log 2>&1 &
+until simple_switch_CLI <<< "help" > /dev/null 2>&1; do sleep 1; done
+# Carga la configuracion del plano de control (entradas de tablas, etc.).
+simple_switch_CLI < /commands.txt

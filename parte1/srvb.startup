@@ -1,0 +1,2 @@
+# Servidor web (HTTP). El direccionamiento debe ser configurado por el grupo.
+service apache2 start

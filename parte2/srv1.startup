@@ -1,0 +1,8 @@
+# Servidor web HTTP (80) y HTTPS (443) con certificado autofirmado.
+# El direccionamiento debe ser configurado por el grupo.
+openssl req -x509 -nodes -newkey rsa:2048 -days 365 -subj "/CN=srv1" \
+    -keyout /etc/ssl/private/ssl-cert-snakeoil.key \
+    -out /etc/ssl/certs/ssl-cert-snakeoil.pem > /dev/null 2>&1
+a2enmod ssl > /dev/null
+a2ensite default-ssl > /dev/null
+service apache2 start
