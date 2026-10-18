@@ -1,2 +1,6 @@
 # Servidor web (HTTP). El direccionamiento debe ser configurado por el grupo.
 service apache2 start
+echo "Este hay que revisarlo. en la configuración srvb y rclb se conectan en un dominio de colisión distinto, por lo que tendría que ser una red distinta creo."
+ip addr add 10.72.0.3/25 dev eth0
+ip link set eth0 up
+ip route add default via 10.72.0.1 dev eth0

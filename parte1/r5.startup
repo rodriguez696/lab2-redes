@@ -1,1 +1,13 @@
 systemctl start frr
+ip addr add 172.16.0.4/27 dev eth1
+ip addr add 203.0.113.1/30 dev eth4
+ip link set eth1 up
+ip link set eth4 up
+
+ip route add 192.168.72./30 via 172.16.0.1 dev eth1
+echo "Las rutas al nexthop las pongo para hacer ping de un router a otro, no son necesarias para enrutar entre dispositivos de borde"
+ip route add 172.16.0.1 via 172.16.0.1 dev eth1
+
+ip route add 10.72.0.0/25 via 203.0.113.2 dev eth4
+ip route add 203.0.113.2 via 203.0.113.2 dev eth4
+ip route add 192.168.72.0/30 via 172.16.0.1 dev eth1
