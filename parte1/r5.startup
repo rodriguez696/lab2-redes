@@ -10,6 +10,6 @@ ip link set eth2 up
 ip link set eth3 up
 ip link set eth4 up
 
-ip route add 10.72.0.0/25 via 203.0.113.2 dev eth4
-ip route add 192.168.72.0/30 via 172.16.0.1 dev eth1
+ip route add 203.0.113.0/30 via 203.0.113.2 dev eth4
+ip route add 203.0.113.4/30 via 172.16.0.1 dev eth1
 ip route add default via 172.16.0.13 dev eth2
