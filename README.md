@@ -1,6 +1,9 @@
 ip pública srvb, dominio a parte de pcb1
+
 routers de backbone no deben poder enrutar a redes privadas de clientes, llegan a rcla y rclb
+
   -> los dispositivos solo conocen a sus vecinos
+  
 rutas entre routes de backbone, cambiar /27 por /30
 
 
