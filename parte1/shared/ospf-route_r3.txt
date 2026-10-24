@@ -1,0 +1,42 @@
+============ OSPF network routing table ============
+N    172.16.0.0/30         [20] area: 0.0.0.0
+                           via 172.16.0.21, eth0
+N    172.16.0.4/30         [30] area: 0.0.0.0
+                           via 172.16.0.42, eth2
+N    172.16.0.8/30         [30] area: 0.0.0.0
+                           via 172.16.0.33, eth1
+                           via 172.16.0.42, eth2
+N    172.16.0.12/30        [20] area: 0.0.0.0
+                           via 172.16.0.42, eth2
+N    172.16.0.16/30        [20] area: 0.0.0.0
+                           via 172.16.0.21, eth0
+                           via 172.16.0.33, eth1
+N    172.16.0.20/30        [10] area: 0.0.0.0
+                           directly attached to eth0
+N    172.16.0.24/30        [20] area: 0.0.0.0
+                           via 172.16.0.33, eth1
+                           via 172.16.0.42, eth2
+N    172.16.0.28/30        [20] area: 0.0.0.0
+                           via 172.16.0.42, eth2
+N    172.16.0.32/30        [10] area: 0.0.0.0
+                           directly attached to eth1
+N    172.16.0.36/30        [20] area: 0.0.0.0
+                           via 172.16.0.33, eth1
+N    172.16.0.40/30        [10] area: 0.0.0.0
+                           directly attached to eth2
+
+============ OSPF router routing table =============
+R    1.1.1.1               [10] area: 0.0.0.0, ASBR
+                           via 172.16.0.21, eth0
+R    5.5.5.5               [10] area: 0.0.0.0, ASBR
+                           via 172.16.0.42, eth2
+R    6.6.6.6               [20] area: 0.0.0.0, ASBR
+                           via 172.16.0.42, eth2
+
+============ OSPF external routing table ===========
+N E2 0.0.0.0/0             [10/1] tag: 0
+                           via 172.16.0.21, eth0
+N E2 203.0.113.0/29        [10/20] tag: 0
+                           via 172.16.0.42, eth2
+
+
