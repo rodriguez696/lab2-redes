@@ -1,10 +1,10 @@
-ip pública srvb, dominio a parte de pcb1
+ip pública srvb, dominio a parte de pcb1 **HECHO**
 
-routers de backbone no deben poder enrutar a redes privadas de clientes, llegan a rcla y rclb
+routers de backbone no deben poder enrutar a redes privadas de clientes, llegan a rcla y rclb **HECHO**
 
-  -> los dispositivos solo conocen a sus vecinos
+  -> los dispositivos solo conocen a sus vecinos **HECHO**
   
-rutas entre routes de backbone, cambiar /27 por /30
+rutas entre routes de backbone, cambiar /27 por /30 **HECHO**
 
 
 

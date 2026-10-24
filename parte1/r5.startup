@@ -1,8 +1,8 @@
 systemctl start frr
-ip addr add 172.16.0.5/27 dev eth0
-ip addr add 172.16.0.4/27 dev eth1
-ip addr add 172.16.0.7/27 dev eth2
-ip addr add 172.16.0.6/27 dev eth3
+ip addr add 172.16.0.26/30 dev eth0
+ip addr add 172.16.0.42/30 dev eth1
+ip addr add 172.16.0.30/30 dev eth2
+ip addr add 172.16.0.14/30 dev eth3
 ip addr add 203.0.113.1/30 dev eth4
 ip link set eth0 up
 ip link set eth1 up
@@ -10,6 +10,12 @@ ip link set eth2 up
 ip link set eth3 up
 ip link set eth4 up
 
-ip route add 203.0.113.0/30 via 203.0.113.2 dev eth4
-ip route add 203.0.113.4/30 via 172.16.0.1 dev eth1
-ip route add default via 172.16.0.13 dev eth2
+
+"Si va hacia A"
+ip route add 203.0.113.8/30 via 172.16.0.41 dev eth1
+
+"Si va hacia B"
+ip route add 203.0.113.4/30 via 203.0.113.2 dev eth4
+
+"Otro caso"
+ip route add default via 172.16.0.13 dev eth3
