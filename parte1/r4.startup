@@ -6,11 +6,12 @@ ip link set eth0 up
 ip link set eth1 up
 ip link set eth2 up
 
-echo "Si va hacia A"
-ip route add 203.0.113.8/30 via 172.16.0.37 dev eth0
-
-echo "Si va hacia B"
-ip route add 203.0.113.0/29 via 172.16.0.30 dev eth1
-
-echo "Otro caso"
-ip route add default via 172.16.0.9 dev eth2
+vtysh << 'EOF'
+configure terminal
+router ospf
+ospf router-id 4.4.4.4
+network 172.16.0.0/26 area 0
+exit
+exit
+exit 
+EOF

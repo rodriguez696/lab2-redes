@@ -6,7 +6,13 @@ ip link set eth0 up
 ip link set eth1 up
 ip link set eth2 up
 
-echo "Cualquier trafico dirigido a los clientes ya sea A o B, su camino optimo es ir a r5"
-ip route add 203.0.113.0/28 via 172.16.0.14 dev eth2
-
-ip route add default via 172.16.0.5 dev eth0
+vtysh << 'EOF'
+configure terminal
+router ospf
+ospf router-id 6.6.6.6
+network 172.16.0.0/26 area 0
+network 8.8.8.0/24 area 3
+exit
+exit
+exit
+EOF
