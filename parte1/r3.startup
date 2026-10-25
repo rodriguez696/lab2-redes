@@ -10,11 +10,10 @@ ip link set eth3 up
 
 vtysh << 'EOF'
 configure terminal
-ip route 203.0.113.8/30 203.0.113.10
 router ospf
 ospf router-id 3.3.3.3
 network 172.16.0.0/26 area 0
-redistribute static
+network 203.0.113.8/30 area 0
 exit
 exit
 exit

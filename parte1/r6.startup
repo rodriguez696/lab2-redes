@@ -8,10 +8,11 @@ ip link set eth2 up
 
 vtysh << 'EOF'
 configure terminal
+ip route 0.0.0.0/0 172.16.0.5
 router ospf
 ospf router-id 6.6.6.6
 network 172.16.0.0/26 area 0
-network 8.8.8.0/24 area 3
+default-information originate always
 exit
 exit
 exit

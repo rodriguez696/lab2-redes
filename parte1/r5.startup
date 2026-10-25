@@ -13,10 +13,11 @@ ip link set eth4 up
 
 vtysh << 'EOF'
 configure terminal
-ip route 203.0.113.0/29 203.0.113.2
+ip route 203.0.113.4/30 203.0.113.2
 router ospf
 ospf router-id 5.5.5.5
 network 172.16.0.0/26 area 0
+network 203.0.113.0/30 area 0
 redistribute static
 exit
 exit
