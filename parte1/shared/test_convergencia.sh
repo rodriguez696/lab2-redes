@@ -1,8 +1,8 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Automatización Corregido (v5) - Prueba de Convergencia OSPF
-# Sin creación de subcarpetas. Trabaja directamente en el directorio actual (/shared)
-# Etiquetado de archivos utilizando '_exp'
+# Script de Automatización Corregido (v6) - Prueba de Convergencia OSPF
+# Ejecución directamente dentro del directorio shared (rutas relativas)
+# Etiquetas: _exp
 # Obligatorio Redes - Sección 1.3
 # ==============================================================================
 
@@ -15,12 +15,12 @@ kathara lrestart --noterminals
 echo "=== 2. Esperando 15 segundos a que OSPF estabilice la topología ==="
 sleep 15
 
-# Limpiar ejecuciones anteriores en /shared
-rm -f /shared/ping_exp_*.log /shared/convergencia_exp_*.pcap 2>/dev/null
+# Limpiar ejecuciones anteriores
+rm -f ping_exp_*.log convergencia_exp_*.pcap 2>/dev/null
 
 for i in $(seq 1 $NUM_RUNS); do
-    LOG_FILE="/shared/ping_exp_${i}.log"
-    PCAP_FILE="/shared/convergencia_exp_${i}.pcap"
+    LOG_FILE="ping_exp_${i}.log"
+    PCAP_FILE="convergencia_exp_${i}.pcap"
     
     echo ""
     echo "=============================================================================="
@@ -34,15 +34,15 @@ for i in $(seq 1 $NUM_RUNS); do
     echo "-> Esperando 12 segundos para estabilizar la adyacencia OSPF..."
     sleep 12
 
-    # Iniciar ping desde r1 guardando el log directamente en /shared
+    # Iniciar ping desde r1 guardando el log en el directorio actual (shared)
     echo "-> Lote de tráfico ICMP desde r1 hacia $TARGET_IP..."
     kathara exec r1 -- ping -i 0.05 -D "$TARGET_IP" > "$LOG_FILE" 2>&1 &
     PING_PID=$!
     sleep 1
 
-    # Iniciar captura tcpdump en r2 guardando el .pcap directamente en /shared
+    # Iniciar captura tcpdump en r2 (dentro del contenedor la carpeta compartida es /shared)
     echo "-> Iniciando captura tcpdump en r2 ($PCAP_FILE)..."
-    kathara exec r2 -- tcpdump -i any -w "$PCAP_FILE" > /dev/null 2>&1 &
+    kathara exec r2 -- tcpdump -i any -w "/shared/$PCAP_FILE" > /dev/null 2>&1 &
     sleep 1
 
     # Generar el evento de falla en r2
@@ -65,12 +65,12 @@ echo "==========================================================================
 echo " RESUMEN Y MÉTRICAS DE LAS $NUM_RUNS PRUEBAS"
 echo "=============================================================================="
 
-# Procesamiento seguro con Python buscando directamente en /shared
+# Procesamiento seguro con Python buscando en el directorio actual
 python3 << 'EOF'
 import re
 import glob
 
-logs = sorted(glob.glob("/shared/ping_exp_*.log") + glob.glob("ping_exp_*.log"))
+logs = sorted(glob.glob("ping_exp_*.log") + glob.glob("./ping_exp_*.log"))
 logs = list(dict.fromkeys(logs)) # Eliminar duplicados si los hubiera
 tiempos = []
 
