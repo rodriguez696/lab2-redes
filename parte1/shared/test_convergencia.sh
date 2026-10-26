@@ -50,8 +50,8 @@ chmod +x shared/*.sh
 echo "=== 1. Reiniciando escenario ==="
 kathara lrestart --noterminals
 
-echo "=== 2. Esperando 40 s por convergencia OSPF inicial ==="
-sleep 40
+echo "=== 2. Esperando 60 s por convergencia OSPF inicial ==="
+sleep 60
 
 echo "=== Verificación previa del camino r1 -> $TARGET_IP (debe cruzar r2-r4) ==="
 kathara exec r1 -- sh /shared/h_path.sh "$TARGET_IP"
