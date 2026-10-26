@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Automatización Corregido (v7) - Prueba de Convergencia OSPF
-# Soluciona: buffering de ping (stdbuf), duplicación de glob en Python y tiempos OSPF
+# Script de Automatización Corregido (v8) - Prueba de Convergencia OSPF
+# Solución definitiva: Redirección directa del log dentro de r1 (/shared/$LOG_FILE)
 # Obligatorio Redes - Sección 1.3
 # ==============================================================================
 
@@ -14,8 +14,8 @@ kathara lrestart --noterminals
 echo "=== 2. Esperando 20 segundos a que OSPF estabilice la topología inicial ==="
 sleep 20
 
-# Limpiar ejecuciones anteriores en la carpeta actual
-rm -f ping_exp_*.log convergencia_exp_*.pcap 2>/dev/null
+# Limpiar ejecuciones anteriores en la carpeta compartida
+rm -f ping_exp_*.log convergencia_exp_*.pcap /shared/ping_exp_*.log /shared/convergencia_exp_*.pcap 2>/dev/null
 
 for i in $(seq 1 $NUM_RUNS); do
     LOG_FILE="ping_exp_${i}.log"
@@ -30,18 +30,17 @@ for i in $(seq 1 $NUM_RUNS); do
     echo "-> Restableciendo interfaz eth2 (no shutdown) en r2..."
     kathara exec r2 -- sh -c "echo -e 'configure terminal\ninterface eth2\nno shutdown' | vtysh" > /dev/null 2>&1
     
-    # Se aumentan a 20 segundos para asegurar que OSPF pase por Down->Init->2-Way->ExStart->Exchange->Loading->FULL
+    # 20 segundos para asegurar adyacencia OSPF FULL
     echo "-> Esperando 20 segundos para asegurar adyacencia FULL en OSPF..."
     sleep 20
 
-    # 2. Iniciar ping con stdbuf -oL para FORZAR el vaciado de buffer (evita archivos .log vacíos)
-    echo "-> Lote de tráfico ICMP desde r1 hacia $TARGET_IP..."
-    kathara exec r1 -- stdbuf -oL ping -i 0.05 -D "$TARGET_IP" > "$LOG_FILE" 2>&1 &
-    PING_PID=$!
+    # 2. Iniciar ping redirigiendo la salida DIRECTAMENTE dentro del contenedor en /shared/
+    echo "-> Lote de tráfico ICMP desde r1 hacia $TARGET_IP (log en /shared/$LOG_FILE)..."
+    kathara exec r1 -- sh -c "ping -i 0.05 -D $TARGET_IP > /shared/$LOG_FILE 2>&1" &
     sleep 2
 
     # 3. Iniciar captura tcpdump en r2
-    echo "-> Iniciando captura tcpdump en r2 ($PCAP_FILE)..."
+    echo "-> Iniciando captura tcpdump en r2 (/shared/$PCAP_FILE)..."
     kathara exec r2 -- tcpdump -i any -w "/shared/$PCAP_FILE" > /dev/null 2>&1 &
     sleep 1
 
@@ -49,14 +48,13 @@ for i in $(seq 1 $NUM_RUNS); do
     echo "-> Provocando falla de enlace: shutdown de eth2 en r2..."
     kathara exec r2 -- sh -c "echo -e 'configure terminal\ninterface eth2\nshutdown' | vtysh" > /dev/null 2>&1
 
-    # 5. Se aumenta a 7 segundos para capturar la reconvergencia completa
+    # 5. Captura extendida a 7 segundos para registrar reconvergencia completa
     echo "-> Capturando reconvergencia..."
     sleep 7
 
-    # 6. Detener procesos de esta iteración
+    # 6. Detener procesos dentro de los contenedores
     echo "-> Deteniendo captura y ping..."
     kathara exec r2 -- pkill -f tcpdump 2>/dev/null || true
-    kill $PING_PID 2>/dev/null || true
     kathara exec r1 -- pkill -f ping 2>/dev/null || true
     sleep 1
 done
@@ -66,13 +64,17 @@ echo "==========================================================================
 echo " RESUMEN Y MÉTRICAS DE LAS $NUM_RUNS PRUEBAS"
 echo "=============================================================================="
 
-# Procesamiento en Python con glob sin duplicados
+# Procesamiento en Python leyendo directamente los logs generados en /shared
 python3 << 'EOF'
 import re
 import glob
 import os
 
-logs = sorted(glob.glob("ping_exp_*.log"))
+# Buscar archivos en la carpeta actual o en /shared
+raw_logs = glob.glob("ping_exp_*.log") + glob.glob("/shared/ping_exp_*.log")
+# Obtener rutas absolutas únicas
+unique_logs = sorted(list(set(os.path.realpath(p) for p in raw_logs if os.path.exists(p))))
+
 tiempos = []
 
 header_fmt = "| {:<10} | {:<18} | {:<18} | {:<18} |"
@@ -81,7 +83,7 @@ row_fmt    = "| {:<10} | {:<18.6f} | {:<18.6f} | {:<18.4f} |"
 print(header_fmt.format("Muestra", "T_falla (s)", "T_recup (s)", "Tiempo Recup (s)"))
 print("|" + "-"*12 + "|" + "-"*20 + "|" + "-"*20 + "|" + "-"*20 + "|")
 
-for idx, log_path in enumerate(logs, 1):
+for idx, log_path in enumerate(unique_logs, 1):
     try:
         if os.path.getsize(log_path) == 0:
             print(f"| {'Prueba ' + str(idx):<10} | {'Log vacío':<18} | {'Log vacío':<18} | {'N/A':<18} |")
