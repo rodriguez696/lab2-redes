@@ -1,7 +1,8 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Automatización Corregido (v8) - Prueba de Convergencia OSPF
-# Solución definitiva: Redirección directa del log dentro de r1 (/shared/$LOG_FILE)
+# Script de Automatización Corregido (v9) - Prueba de Convergencia OSPF
+# Solución al error PyInstaller: Eliminación total de argumentos '-c'
+# Redirección directa dentro del contenedor en /shared/
 # Obligatorio Redes - Sección 1.3
 # ==============================================================================
 
@@ -26,17 +27,17 @@ for i in $(seq 1 $NUM_RUNS); do
     echo " REPETICIÓN $i DE $NUM_RUNS"
     echo "=============================================================================="
     
-    # 1. Restablecer la interfaz en r2
+    # 1. Restablecer la interfaz en r2 mediante pipe a vtysh (sin usar -c)
     echo "-> Restableciendo interfaz eth2 (no shutdown) en r2..."
-    kathara exec r2 -- sh -c "echo -e 'configure terminal\ninterface eth2\nno shutdown' | vtysh" > /dev/null 2>&1
+    echo -e "configure terminal\ninterface eth2\nno shutdown" | kathara exec r2 -- vtysh > /dev/null 2>&1
     
     # 20 segundos para asegurar adyacencia OSPF FULL
     echo "-> Esperando 20 segundos para asegurar adyacencia FULL en OSPF..."
     sleep 20
 
-    # 2. Iniciar ping redirigiendo la salida DIRECTAMENTE dentro del contenedor en /shared/
+    # 2. Iniciar ping enviando la orden por stdin a 'sh' (sin usar -c)
     echo "-> Lote de tráfico ICMP desde r1 hacia $TARGET_IP (log en /shared/$LOG_FILE)..."
-    kathara exec r1 -- sh -c "ping -i 0.05 -D $TARGET_IP > /shared/$LOG_FILE 2>&1" &
+    echo "exec ping -i 0.05 -D $TARGET_IP > /shared/$LOG_FILE 2>&1" | kathara exec r1 -- sh &
     sleep 2
 
     # 3. Iniciar captura tcpdump en r2
@@ -44,9 +45,9 @@ for i in $(seq 1 $NUM_RUNS); do
     kathara exec r2 -- tcpdump -i any -w "/shared/$PCAP_FILE" > /dev/null 2>&1 &
     sleep 1
 
-    # 4. Generar la falla
+    # 4. Generar la falla mediante pipe a vtysh (sin usar -c)
     echo "-> Provocando falla de enlace: shutdown de eth2 en r2..."
-    kathara exec r2 -- sh -c "echo -e 'configure terminal\ninterface eth2\nshutdown' | vtysh" > /dev/null 2>&1
+    echo -e "configure terminal\ninterface eth2\nshutdown" | kathara exec r2 -- vtysh > /dev/null 2>&1
 
     # 5. Captura extendida a 7 segundos para registrar reconvergencia completa
     echo "-> Capturando reconvergencia..."
