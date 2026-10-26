@@ -1,21 +1,21 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Automatización Corregido (v10) - Prueba de Convergencia OSPF
-# Solución definitiva al problema de logs no creados:
-# 1. Usa un script auxiliar (do_ping.sh) para evitar el uso del flag '-c' (error de PyInstaller).
-# 2. Evita la tubería (pipe) en segundo plano que cerraba stdin y mataba al ping prematuramente.
+# Script de Automatización Corregido (v11) - Prueba de Convergencia OSPF
 # Obligatorio Redes - Sección 1.3
 # ==============================================================================
 
 TARGET_IP="172.16.0.9"
 NUM_RUNS=5
 
-# 1. Crear un pequeño script auxiliar en la carpeta actual (/shared)
-cat << 'PING_SCRIPT' > do_ping.sh
+# Asegurarse de que la carpeta compartida 'shared' exista en el host
+mkdir -p shared
+
+# 1. Crear el script auxiliar dentro de la carpeta 'shared' (visible como /shared/do_ping.sh)
+cat << 'PING_SCRIPT' > shared/do_ping.sh
 #!/bin/sh
 ping -i 0.05 -D "$1" > "$2" 2>&1
 PING_SCRIPT
-chmod +x do_ping.sh
+chmod +x shared/do_ping.sh
 
 echo "=== 1. Reiniciando escenario Kathará inicialmente ==="
 kathara lrestart --noterminals
@@ -24,7 +24,7 @@ echo "=== 2. Esperando 20 segundos a que OSPF estabilice la topología inicial =
 sleep 20
 
 # Limpiar ejecuciones anteriores en la carpeta compartida
-rm -f ping_exp_*.log convergencia_exp_*.pcap 2>/dev/null
+rm -f shared/ping_exp_*.log shared/convergencia_exp_*.pcap 2>/dev/null
 
 for i in $(seq 1 $NUM_RUNS); do
     LOG_FILE="ping_exp_${i}.log"
@@ -43,12 +43,12 @@ for i in $(seq 1 $NUM_RUNS); do
     echo "-> Esperando 20 segundos para asegurar adyacencia FULL en OSPF..."
     sleep 20
 
-    # Iniciar ping ejecutando el script auxiliar sin pipe ni -c
+    # Iniciar ping ejecutando el script auxiliar ubicado en /shared
     echo "-> Lote de tráfico ICMP desde r1 hacia $TARGET_IP (log: $LOG_FILE)..."
     kathara exec r1 -- sh /shared/do_ping.sh "$TARGET_IP" "/shared/$LOG_FILE" > /dev/null 2>&1 &
     sleep 2
 
-    # Iniciar captura tcpdump en r2
+    # Iniciar captura tcpdump en r2 guardando en /shared
     echo "-> Iniciando captura tcpdump en r2 ($PCAP_FILE)..."
     kathara exec r2 -- tcpdump -i any -w "/shared/$PCAP_FILE" > /dev/null 2>&1 &
     sleep 1
@@ -73,13 +73,13 @@ echo "==========================================================================
 echo " RESUMEN Y MÉTRICAS DE LAS $NUM_RUNS PRUEBAS"
 echo "=============================================================================="
 
-# Procesamiento en Python leyendo los logs creados en la carpeta actual
+# Procesamiento en Python leyendo los logs desde la carpeta compartida 'shared'
 python3 << 'EOF'
 import re
 import glob
 import os
 
-logs = sorted(glob.glob("ping_exp_*.log"))
+logs = sorted(glob.glob("shared/ping_exp_*.log"))
 tiempos = []
 
 header_fmt = "| {:<10} | {:<18} | {:<18} | {:<18} |"
@@ -98,7 +98,7 @@ for idx, log_path in enumerate(logs, 1):
             last_seq, last_time = None, None
             corte_encontrado = False
             for line in f:
-                t_m = re.search(r"\\[([\d\.]+)\\]", line)
+                t_m = re.search(r"\[([\d\.]+)\]", line)
                 s_m = re.search(r"icmp_seq=(\d+)", line)
                 if s_m and t_m:
                     t, s = float(t_m.group(1)), int(s_m.group(1))
