@@ -1,127 +1,151 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Automatización Optimizado (v14) - Prueba de Convergencia OSPF
-# Obligatorio Redes - Sección 1.3
+# Prueba de Convergencia OSPF (v16) - Obligatorio Redes - Sección 1.3
+# Ejecutar desde el directorio del laboratorio (donde está lab.conf).
+# NOTA: kathara rechaza cualquier '-c' en su línea de comandos, por eso todo lo
+# que necesita '-c' (vtysh, sh) vive en scripts auxiliares dentro de shared/.
 # ==============================================================================
 
 TARGET_IP="172.16.0.9"
 NUM_RUNS=5
+PRE_FALLA=4
+POST_FALLA=8
+PING_DEADLINE=$((PRE_FALLA + POST_FALLA + 3))
 
-# Asegurarse de que la carpeta compartida 'shared' exista en el host
 mkdir -p shared
+rm -f shared/ping_exp_*.log shared/conv_*.pcap shared/t_falla_*.txt shared/rutas_*.txt 2>/dev/null
 
-# 1. Crear el script auxiliar dentro de la carpeta 'shared' (visible como /shared/do_ping.sh)
-cat << 'PING_SCRIPT' > shared/do_ping.sh
+# ---- Scripts auxiliares (se ejecutan DENTRO de los contenedores) --------------
+cat << 'EOS' > shared/do_ping.sh
 #!/bin/sh
-ping -i 0.05 -D "$1" > "$2" 2>&1
-PING_SCRIPT
-chmod +x shared/do_ping.sh
+# $1 destino, $2 log, $3 deadline (s)
+ping -i 0.05 -D -w "$3" "$1" > "$2" 2>&1
+EOS
 
-echo "=== 1. Reiniciando escenario Kathará UNA SOLA VEZ al inicio ==="
+cat << 'EOS' > shared/h_link.sh
+#!/bin/sh
+# $1 up|down, $2 interfaz, $3 archivo donde guardar timestamp (opcional)
+[ -n "$3" ] && date +%s.%N > "$3"
+if [ "$1" = "down" ]; then CMD="shutdown"; else CMD="no shutdown"; fi
+vtysh -c "configure terminal" -c "interface $2" -c "$CMD"
+EOS
+
+cat << 'EOS' > shared/h_snap.sh
+#!/bin/sh
+# $1 destino, $2 archivo de salida
+{ ip route; echo; ip route get "$1"; } > "$2" 2>&1
+EOS
+
+cat << 'EOS' > shared/h_path.sh
+#!/bin/sh
+# $1 destino
+ip route get "$1"
+vtysh -c "show ip route $1"
+traceroute -n "$1" 2>/dev/null || true
+EOS
+chmod +x shared/*.sh
+
+echo "=== 1. Reiniciando escenario ==="
 kathara lrestart --noterminals
 
-echo "=== 2. Esperando 35 segundos para la convergencia OSPF inicial completa ==="
-sleep 35
+echo "=== 2. Esperando 40 s por convergencia OSPF inicial ==="
+sleep 40
 
-# Limpiar ejecuciones anteriores en la carpeta compartida
-rm -f shared/ping_exp_*.log shared/convergencia_exp_*.pcap 2>/dev/null
+echo "=== Verificación previa del camino r1 -> $TARGET_IP (debe cruzar r2-r4, sin ECMP) ==="
+kathara exec r1 -- sh /shared/h_path.sh "$TARGET_IP"
+echo "(Si no atraviesa r2-r4 o hay ECMP, ajuste costos/destino antes de seguir)"
 
 for i in $(seq 1 $NUM_RUNS); do
-    LOG_FILE="ping_exp_${i}.log"
-    PCAP_FILE="convergencia_exp_${i}.pcap"
-    
+    LOG="ping_exp_${i}.log"
     echo ""
-    echo "=============================================================================="
-    echo " REPETICIÓN $i DE $NUM_RUNS"
-    echo "=============================================================================="
-    
-    # 1. Restaurar el enlace levantando la interfaz en r2 mediante vtysh
-    echo "-> Restaurando interfaz eth2 (no shutdown) en r2..."
-    echo -e "configure terminal\ninterface eth2\nno shutdown" | kathara exec r2 -- vtysh > /dev/null 2>&1
-    
-    # 30 segundos para garantizar que OSPF complete adyacencias FULL y retorne al camino principal
-    echo "-> Esperando 30 segundos para reconvergencia completa OSPF al camino principal..."
-    sleep 30
+    echo "=============== REPETICIÓN $i DE $NUM_RUNS ==============="
 
-    # 2. Iniciar ping ejecutando el script auxiliar ubicado en /shared
-    echo "-> Lote de tráfico ICMP desde r1 hacia $TARGET_IP (log: $LOG_FILE)..."
-    kathara exec r1 -- sh /shared/do_ping.sh "$TARGET_IP" "/shared/$LOG_FILE" > /dev/null 2>&1 &
-    sleep 3
+    echo "-> Restaurando eth2 en r2..."
+    kathara exec r2 -- sh /shared/h_link.sh up eth2 > /dev/null 2>&1
+    echo "-> Esperando 35 s para reconvergencia al camino original..."
+    sleep 35
 
-    # 3. Iniciar captura tcpdump en r2 guardando en /shared
-    echo "-> Iniciando captura tcpdump en r2 ($PCAP_FILE)..."
-    kathara exec r2 -- tcpdump -i any -w "/shared/$PCAP_FILE" > /dev/null 2>&1 &
-    sleep 1
+    kathara exec r1 -- sh /shared/h_snap.sh "$TARGET_IP" "/shared/rutas_antes_${i}.txt" > /dev/null 2>&1
 
-    # 4. Generar la falla mediante vtysh
-    echo "-> Provocando falla de enlace: shutdown de eth2 en r2..."
-    echo -e "configure terminal\ninterface eth2\nshutdown" | kathara exec r2 -- vtysh > /dev/null 2>&1
-
-    # 5. Captura extendida a 10 segundos para registrar reconvergencia y recuperación del ping
-    echo "-> Capturando reconvergencia..."
-    sleep 10
-
-    # 6. Detener procesos dentro de los contenedores
-    echo "-> Deteniendo captura y ping..."
-    kathara exec r2 -- pkill -f tcpdump 2>/dev/null || true
-    kathara exec r1 -- pkill -f ping 2>/dev/null || true
+    echo "-> Iniciando ping en r1 ($LOG)..."
+    kathara exec r1 -- sh /shared/do_ping.sh "$TARGET_IP" "/shared/$LOG" "$PING_DEADLINE" > /dev/null 2>&1 &
+    PING_PID=$!
     sleep 2
+
+    echo "-> Iniciando tcpdump en r2 y r4..."
+    kathara exec r2 -- tcpdump -U -i any -w "/shared/conv_r2_${i}.pcap" > /dev/null 2>&1 &
+    kathara exec r4 -- tcpdump -U -i any -w "/shared/conv_r4_${i}.pcap" > /dev/null 2>&1 &
+    sleep $((PRE_FALLA - 2))
+
+    echo "-> Provocando falla (shutdown eth2 en r2)..."
+    kathara exec r2 -- sh /shared/h_link.sh down eth2 "/shared/t_falla_${i}.txt" > /dev/null 2>&1
+
+    ESTADO=$(kathara exec r2 -- ip -o link show eth2 2>/dev/null)
+    if echo "$ESTADO" | grep -q "state DOWN"; then
+        echo "   eth2 DOWN confirmado."
+    else
+        echo "   !! AVISO: eth2 NO quedó DOWN: $ESTADO"
+    fi
+
+    sleep 1
+    kathara exec r1 -- sh /shared/h_snap.sh "$TARGET_IP" "/shared/rutas_despues_${i}.txt" > /dev/null 2>&1
+    sleep $((POST_FALLA - 1))
+
+    echo "-> Deteniendo capturas..."
+    kathara exec r2 -- pkill tcpdump 2>/dev/null || true
+    kathara exec r4 -- pkill tcpdump 2>/dev/null || true
+    wait $PING_PID 2>/dev/null
+    sleep 1
 done
 
+kathara exec r2 -- sh /shared/h_link.sh up eth2 > /dev/null 2>&1
+
 echo ""
-echo "=============================================================================="
-echo " RESUMEN Y MÉTRICAS DE LAS $NUM_RUNS PRUEBAS"
-echo "=============================================================================="
+echo "=============== RESUMEN ==============="
+NUM_RUNS=$NUM_RUNS python3 << 'EOF'
+import re, os
 
-# Procesamiento en Python leyendo los logs desde la carpeta compartida 'shared'
-python3 << 'EOF'
-import re
-import glob
-import os
+def leer_ok(path):
+    ok = []
+    with open(path) as f:
+        for line in f:
+            if "bytes from" not in line:
+                continue
+            t = re.search(r"\[([\d.]+)\]", line)
+            s = re.search(r"icmp_seq=(\d+)", line)
+            if t and s:
+                ok.append((float(t.group(1)), int(s.group(1))))
+    return ok
 
-logs = sorted(glob.glob("shared/ping_exp_*.log"))
-tiempos = []
+outages, desde_falla = [], []
+print(f"| {'Prueba':<8} | {'T_falla':<17} | {'Último OK':<17} | {'Primer OK nuevo':<17} | {'Sin conect.(s)':<14} | {'Falla->OK (s)':<13} | {'Pkts perdidos':<13} |")
+print("|" + "-"*10 + ("|" + "-"*19)*3 + "|" + "-"*16 + "|" + "-"*15 + "|" + "-"*15 + "|")
 
-header_fmt = "| {:<10} | {:<18} | {:<18} | {:<18} |"
-row_fmt    = "| {:<10} | {:<18.6f} | {:<18.6f} | {:<18.4f} |"
-
-print(header_fmt.format("Muestra", "T_falla (s)", "T_recup (s)", "Tiempo Recup (s)"))
-print("|" + "-"*12 + "|" + "-"*20 + "|" + "-"*20 + "|" + "-"*20 + "|")
-
-for idx, log_path in enumerate(logs, 1):
+for i in range(1, int(os.environ["NUM_RUNS"]) + 1):
     try:
-        if os.path.getsize(log_path) == 0:
-            print(f"| {'Prueba ' + str(idx):<10} | {'Log vacío':<18} | {'Log vacío':<18} | {'N/A':<18} |")
-            continue
-            
-        with open(log_path) as f:
-            last_seq, last_time = None, None
-            corte_encontrado = False
-            for line in f:
-                t_m = re.search(r"\[([\d\.]+)\]", line)
-                s_m = re.search(r"icmp_seq=(\d+)", line)
-                if s_m and t_m:
-                    t, s = float(t_m.group(1)), int(s_m.group(1))
-                    if last_seq is not None and s > last_seq + 1:
-                        duracion = t - last_time
-                        tiempos.append(duracion)
-                        print(row_fmt.format(f"Prueba {idx}", last_time, t, duracion))
-                        corte_encontrado = True
-                        break
-                    last_seq, last_time = s, t
-            if not corte_encontrado:
-                print(f"| {'Prueba ' + str(idx):<10} | {'N/A (0% pérdida)':<18} | {'N/A (0% pérdida)':<18} | {'0.0000 (instant.)':<18} |")
-                tiempos.append(0.0)
+        ok = leer_ok(f"shared/ping_exp_{i}.log")
+        t_falla = float(open(f"shared/t_falla_{i}.txt").read().strip())
     except Exception as e:
-        print(f"| {'Prueba ' + str(idx):<10} | {'Error archivo':<18} | {'Error archivo':<18} | {'N/A':<18} |")
+        print(f"| Prueba {i}: error leyendo archivos ({e})")
+        continue
+    gap = None
+    for (t0, s0), (t1, s1) in zip(ok, ok[1:]):
+        if s1 > s0 + 1 and t1 >= t_falla:
+            gap = (t0, t1, s1 - s0 - 1)
+            break
+    if gap is None:
+        print(f"| Prueba {i}: INVÁLIDA - 0% de pérdida (la falla no afectó este flujo: revisar camino/ECMP o que eth2 haya caído)")
+        continue
+    t0, t1, perd = gap
+    outages.append(t1 - t0)
+    desde_falla.append(t1 - t_falla)
+    print(f"| {i:<8} | {t_falla:<17.6f} | {t0:<17.6f} | {t1:<17.6f} | {t1-t0:<14.4f} | {t1-t_falla:<13.4f} | {perd:<13} |")
 
-if tiempos:
-    t_min = min(tiempos)
-    t_max = max(tiempos)
-    t_prom = sum(tiempos) / len(tiempos)
-    print("\n" + "="*72)
-    print(f" MÍNIMO   : {t_min:.4f} s ({t_min*1000:.1f} ms)")
-    print(f" MÁXIMO   : {t_max:.4f} s ({t_max*1000:.1f} ms)")
-    print(f" PROMEDIO : {t_prom:.4f} s ({t_prom*1000:.1f} ms)")
-    print("="*72)
+def stats(nombre, v):
+    if v:
+        print(f" {nombre}: min={min(v):.4f}s  max={max(v):.4f}s  prom={sum(v)/len(v):.4f}s  (n={len(v)})")
+
+print()
+stats("Periodo sin conectividad (ping)", outages)
+stats("Falla -> primer ping exitoso   ", desde_falla)
 EOF
