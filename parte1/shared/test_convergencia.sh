@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Automatización Corregido (v11) - Prueba de Convergencia OSPF
+# Script de Automatización Corregido (v12) - Prueba de Convergencia OSPF
 # Obligatorio Redes - Sección 1.3
 # ==============================================================================
 
@@ -17,12 +17,6 @@ ping -i 0.05 -D "$1" > "$2" 2>&1
 PING_SCRIPT
 chmod +x shared/do_ping.sh
 
-echo "=== 1. Reiniciando escenario Kathará inicialmente ==="
-kathara lrestart --noterminals
-
-echo "=== 2. Esperando 20 segundos a que OSPF estabilice la topología inicial ==="
-sleep 20
-
 # Limpiar ejecuciones anteriores en la carpeta compartida
 rm -f shared/ping_exp_*.log shared/convergencia_exp_*.pcap 2>/dev/null
 
@@ -35,11 +29,10 @@ for i in $(seq 1 $NUM_RUNS); do
     echo " REPETICIÓN $i DE $NUM_RUNS"
     echo "=============================================================================="
     
-    # Restablecer la interfaz en r2 mediante vtysh por stdin (sincrónico)
-    echo "-> Restableciendo interfaz eth2 (no shutdown) en r2..."
-    echo -e "configure terminal\ninterface eth2\nno shutdown" | kathara exec r2 -- vtysh > /dev/null 2>&1
+    echo "=== Reiniciando escenario Kathará para asegurar estado inicial limpio ==="
+    kathara lrestart --noterminals
     
-    # 20 segundos para asegurar adyacencia OSPF FULL
+    # 20 segundos para asegurar adyacencia OSPF FULL inicial
     echo "-> Esperando 20 segundos para asegurar adyacencia FULL en OSPF..."
     sleep 20
 
