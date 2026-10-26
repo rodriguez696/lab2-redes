@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Script de Automatización Definitivo (v13) - Prueba de Convergencia OSPF
+# Script de Automatización Optimizado (v14) - Prueba de Convergencia OSPF
 # Obligatorio Redes - Sección 1.3
 # ==============================================================================
 
@@ -20,8 +20,8 @@ chmod +x shared/do_ping.sh
 echo "=== 1. Reiniciando escenario Kathará UNA SOLA VEZ al inicio ==="
 kathara lrestart --noterminals
 
-echo "=== 2. Esperando 20 segundos para la convergencia OSPF inicial del escenario ==="
-sleep 20
+echo "=== 2. Esperando 35 segundos para la convergencia OSPF inicial completa ==="
+sleep 35
 
 # Limpiar ejecuciones anteriores en la carpeta compartida
 rm -f shared/ping_exp_*.log shared/convergencia_exp_*.pcap 2>/dev/null
@@ -39,14 +39,14 @@ for i in $(seq 1 $NUM_RUNS); do
     echo "-> Restaurando interfaz eth2 (no shutdown) en r2..."
     echo -e "configure terminal\ninterface eth2\nno shutdown" | kathara exec r2 -- vtysh > /dev/null 2>&1
     
-    # Como OSPF ya está activo, 12 segundos son suficientes para reestablecer la adyacencia FULL
-    echo "-> Esperando 12 segundos para convergencia OSPF del enlace restaurado..."
-    sleep 12
+    # 30 segundos para garantizar que OSPF complete adyacencias FULL y retorne al camino principal
+    echo "-> Esperando 30 segundos para reconvergencia completa OSPF al camino principal..."
+    sleep 30
 
     # 2. Iniciar ping ejecutando el script auxiliar ubicado en /shared
     echo "-> Lote de tráfico ICMP desde r1 hacia $TARGET_IP (log: $LOG_FILE)..."
     kathara exec r1 -- sh /shared/do_ping.sh "$TARGET_IP" "/shared/$LOG_FILE" > /dev/null 2>&1 &
-    sleep 2
+    sleep 3
 
     # 3. Iniciar captura tcpdump en r2 guardando en /shared
     echo "-> Iniciando captura tcpdump en r2 ($PCAP_FILE)..."
@@ -57,15 +57,15 @@ for i in $(seq 1 $NUM_RUNS); do
     echo "-> Provocando falla de enlace: shutdown de eth2 en r2..."
     echo -e "configure terminal\ninterface eth2\nshutdown" | kathara exec r2 -- vtysh > /dev/null 2>&1
 
-    # 5. Captura extendida a 7 segundos para registrar reconvergencia completa
+    # 5. Captura extendida a 10 segundos para registrar reconvergencia y recuperación del ping
     echo "-> Capturando reconvergencia..."
-    sleep 7
+    sleep 10
 
     # 6. Detener procesos dentro de los contenedores
     echo "-> Deteniendo captura y ping..."
     kathara exec r2 -- pkill -f tcpdump 2>/dev/null || true
     kathara exec r1 -- pkill -f ping 2>/dev/null || true
-    sleep 1
+    sleep 2
 done
 
 echo ""
