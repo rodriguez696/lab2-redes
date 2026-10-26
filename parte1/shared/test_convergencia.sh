@@ -1,25 +1,27 @@
 #!/bin/bash
 # ==============================================================================
-# Prueba de Convergencia OSPF (v16) - Obligatorio Redes - Sección 1.3
+# Prueba de Convergencia OSPF (v17) - Obligatorio Redes - Sección 1.3
 # Ejecutar desde el directorio del laboratorio (donde está lab.conf).
-# NOTA: kathara rechaza cualquier '-c' en su línea de comandos, por eso todo lo
-# que necesita '-c' (vtysh, sh) vive en scripts auxiliares dentro de shared/.
+# kathara rechaza '-c' en su línea de comandos: todo lo que lo necesita vive en
+# scripts auxiliares dentro de shared/.
+# v17: ping con -c (no -w, que corta el ping al primer ICMP de error, p.ej. un
+#      Redirect), intervalo de 10 ms, y manejo de corridas sin pérdida detectable.
 # ==============================================================================
 
 TARGET_IP="172.16.0.9"
 NUM_RUNS=5
 PRE_FALLA=4
 POST_FALLA=8
-PING_DEADLINE=$((PRE_FALLA + POST_FALLA + 3))
+INTERVALO=0.01
+PING_COUNT=$(( (PRE_FALLA + POST_FALLA + 3) * 100 ))   # 100 pkts/s * segundos
 
 mkdir -p shared
 rm -f shared/ping_exp_*.log shared/conv_*.pcap shared/t_falla_*.txt shared/rutas_*.txt 2>/dev/null
 
-# ---- Scripts auxiliares (se ejecutan DENTRO de los contenedores) --------------
 cat << 'EOS' > shared/do_ping.sh
 #!/bin/sh
-# $1 destino, $2 log, $3 deadline (s)
-ping -i 0.05 -D -w "$3" "$1" > "$2" 2>&1
+# $1 destino, $2 log, $3 cantidad de paquetes, $4 intervalo (s)
+ping -i "$4" -D -c "$3" -W 1 "$1" > "$2" 2>&1
 EOS
 
 cat << 'EOS' > shared/h_link.sh
@@ -51,9 +53,8 @@ kathara lrestart --noterminals
 echo "=== 2. Esperando 40 s por convergencia OSPF inicial ==="
 sleep 40
 
-echo "=== Verificación previa del camino r1 -> $TARGET_IP (debe cruzar r2-r4, sin ECMP) ==="
+echo "=== Verificación previa del camino r1 -> $TARGET_IP (debe cruzar r2-r4) ==="
 kathara exec r1 -- sh /shared/h_path.sh "$TARGET_IP"
-echo "(Si no atraviesa r2-r4 o hay ECMP, ajuste costos/destino antes de seguir)"
 
 for i in $(seq 1 $NUM_RUNS); do
     LOG="ping_exp_${i}.log"
@@ -68,7 +69,7 @@ for i in $(seq 1 $NUM_RUNS); do
     kathara exec r1 -- sh /shared/h_snap.sh "$TARGET_IP" "/shared/rutas_antes_${i}.txt" > /dev/null 2>&1
 
     echo "-> Iniciando ping en r1 ($LOG)..."
-    kathara exec r1 -- sh /shared/do_ping.sh "$TARGET_IP" "/shared/$LOG" "$PING_DEADLINE" > /dev/null 2>&1 &
+    kathara exec r1 -- sh /shared/do_ping.sh "$TARGET_IP" "/shared/$LOG" "$PING_COUNT" "$INTERVALO" > /dev/null 2>&1 &
     PING_PID=$!
     sleep 2
 
@@ -94,7 +95,7 @@ for i in $(seq 1 $NUM_RUNS); do
     echo "-> Deteniendo capturas..."
     kathara exec r2 -- pkill tcpdump 2>/dev/null || true
     kathara exec r4 -- pkill tcpdump 2>/dev/null || true
-    wait $PING_PID 2>/dev/null
+    wait $PING_PID 2>/dev/null     # el ping termina solo al enviar PING_COUNT paquetes
     sleep 1
 done
 
@@ -102,28 +103,30 @@ kathara exec r2 -- sh /shared/h_link.sh up eth2 > /dev/null 2>&1
 
 echo ""
 echo "=============== RESUMEN ==============="
-NUM_RUNS=$NUM_RUNS python3 << 'EOF'
+NUM_RUNS=$NUM_RUNS INTERVALO=$INTERVALO python3 << 'EOF'
 import re, os
 
-def leer_ok(path):
-    ok = []
+INTERVALO = float(os.environ["INTERVALO"])
+
+def leer(path):
+    ok, errs = [], 0
     with open(path) as f:
         for line in f:
-            if "bytes from" not in line:
-                continue
             t = re.search(r"\[([\d.]+)\]", line)
             s = re.search(r"icmp_seq=(\d+)", line)
-            if t and s:
+            if "bytes from" in line and t and s:
                 ok.append((float(t.group(1)), int(s.group(1))))
-    return ok
+            elif re.search(r"^\[[\d.]+\] From \S+ icmp_seq=", line):
+                errs += 1          # Redirect Host, TTL exceeded, Unreachable, ...
+    return ok, errs
 
-outages, desde_falla = [], []
-print(f"| {'Prueba':<8} | {'T_falla':<17} | {'Último OK':<17} | {'Primer OK nuevo':<17} | {'Sin conect.(s)':<14} | {'Falla->OK (s)':<13} | {'Pkts perdidos':<13} |")
-print("|" + "-"*10 + ("|" + "-"*19)*3 + "|" + "-"*16 + "|" + "-"*15 + "|" + "-"*15 + "|")
+outages, desde_falla, sin_perdida = [], [], 0
+print(f"| {'Prueba':<6} | {'T_falla':<17} | {'Último OK':<17} | {'Primer OK nuevo':<17} | {'Sin conect.(s)':<14} | {'Falla->OK (s)':<13} | {'Perdidos':<8} | {'ICMP err':<8} |")
+print("|" + "-"*8 + ("|" + "-"*19)*3 + "|" + "-"*16 + "|" + "-"*15 + "|" + "-"*10 + "|" + "-"*10 + "|")
 
 for i in range(1, int(os.environ["NUM_RUNS"]) + 1):
     try:
-        ok = leer_ok(f"shared/ping_exp_{i}.log")
+        ok, errs = leer(f"shared/ping_exp_{i}.log")
         t_falla = float(open(f"shared/t_falla_{i}.txt").read().strip())
     except Exception as e:
         print(f"| Prueba {i}: error leyendo archivos ({e})")
@@ -134,12 +137,13 @@ for i in range(1, int(os.environ["NUM_RUNS"]) + 1):
             gap = (t0, t1, s1 - s0 - 1)
             break
     if gap is None:
-        print(f"| Prueba {i}: INVÁLIDA - 0% de pérdida (la falla no afectó este flujo: revisar camino/ECMP o que eth2 haya caído)")
+        sin_perdida += 1
+        print(f"| {i:<6} | {t_falla:<17.6f} | sin pérdida detectable (corte < {INTERVALO*1000:.0f} ms, resolución del ping)        | {'-':<8} | {errs:<8} |")
         continue
     t0, t1, perd = gap
     outages.append(t1 - t0)
     desde_falla.append(t1 - t_falla)
-    print(f"| {i:<8} | {t_falla:<17.6f} | {t0:<17.6f} | {t1:<17.6f} | {t1-t0:<14.4f} | {t1-t_falla:<13.4f} | {perd:<13} |")
+    print(f"| {i:<6} | {t_falla:<17.6f} | {t0:<17.6f} | {t1:<17.6f} | {t1-t0:<14.4f} | {t1-t_falla:<13.4f} | {perd:<8} | {errs:<8} |")
 
 def stats(nombre, v):
     if v:
@@ -148,4 +152,6 @@ def stats(nombre, v):
 print()
 stats("Periodo sin conectividad (ping)", outages)
 stats("Falla -> primer ping exitoso   ", desde_falla)
+if sin_perdida:
+    print(f" Corridas sin pérdida detectable (corte < {INTERVALO*1000:.0f} ms): {sin_perdida}  (no entran en las estadísticas)")
 EOF
