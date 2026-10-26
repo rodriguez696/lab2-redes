@@ -15,6 +15,9 @@ ospf router-id 3.3.3.3
 network 172.16.0.0/26 area 0
 network 203.0.113.8/30 area 0
 exit
+interface eth2
+ip ospf cost 50
+exit
 exit
 exit
 EOF

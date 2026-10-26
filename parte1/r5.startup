@@ -10,7 +10,6 @@ ip link set eth2 up
 ip link set eth3 up
 ip link set eth4 up
 
-
 vtysh << 'EOF'
 configure terminal
 ip route 203.0.113.4/30 203.0.113.2
@@ -20,7 +19,12 @@ network 172.16.0.0/26 area 0
 network 203.0.113.0/30 area 0
 redistribute static
 exit
+interface eth1
+ip ospf cost 50
 exit
+interface eth0
+ip ospf cost 30
+exiti
 exit
 EOF
 
