@@ -19,12 +19,21 @@ network 172.16.0.0/26 area 0
 network 203.0.113.0/30 area 0
 redistribute static
 exit
-interface eth1
-ip ospf cost 50
-exit
 interface eth0
-ip ospf cost 30
-exiti
+ip ospf cost 1
+exit
+interface eth1
+ip ospf cost 1
+exit
+interface eth2
+ip ospf cost 1
+exit
+interface eth3
+ip ospf cost 1
+interface eth4
+ip ospf cost 1
+exit
+exit
 exit
 EOF
 

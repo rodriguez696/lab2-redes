@@ -14,8 +14,18 @@ router ospf
 ospf router-id 2.2.2.2
 network 172.16.0.0/26 area 0
 exit
+interface eth0
+ip ospf cost 1
+exit
+interface eth1
+ip ospf cost 1
+exit
+interface eth2
+ip ospf cost 1
+exit
 interface eth3
-ip ospf cost 30
+ip ospf cost 1
+exit
 exit
 exit
 EOF
