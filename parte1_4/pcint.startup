@@ -1,0 +1,4 @@
+ip addr add 8.8.8.8/24 dev eth0
+ip link set eth0 up
+
+ip route add default via 8.8.8.1 dev eth0

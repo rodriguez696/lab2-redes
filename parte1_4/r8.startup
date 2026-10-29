@@ -1,1 +1,26 @@
 systemctl start frr
+ip addr 172.16.0.50/30 dev eth0
+ip addr 172.16.0.58/30 dev eth2
+ip addr 172.16.0.54/30 dev eth3
+ip link set eth0 up
+ip link set eth2 down
+ip link set eth3 down
+
+vtysh << 'EOF'
+configure terminal
+router ospf
+ospf router-id 8.8.8.8
+network 172.16.0.0/26 area 0
+exit
+interface eth0
+ip ospf cost 1
+exit
+interface eth2
+ip ospf cost 1
+exit
+interface eth3
+ip ospf cost 1
+exit
+exit
+exit
+EOF

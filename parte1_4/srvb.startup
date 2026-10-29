@@ -1,2 +1,6 @@
 # Servidor web (HTTP). El direccionamiento debe ser configurado por el grupo.
 service apache2 start
+ip addr add 203.0.113.6/30 dev eth0
+ip link set eth0 up
+
+ip route add default via 203.0.113.5 dev eth0
