@@ -1,8 +1,8 @@
 systemctl start frr
-ip addr 172.16.0.50/30 dev eth0
-ip addr 203.0.113.13/30 dev eth1
-ip addr 172.16.0.58/30 dev eth2
-ip addr 172.16.0.54/30 dev eth3
+ip addr add 172.16.0.50/30 dev eth0
+ip addr add 203.0.113.13/30 dev eth1
+ip addr add 172.16.0.58/30 dev eth2
+ip addr add 172.16.0.54/30 dev eth3
 ip link set eth0 up
 ip link set eth2 down
 ip link set eth3 down
