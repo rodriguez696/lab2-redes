@@ -1,5 +1,6 @@
 systemctl start frr
 ip addr 172.16.0.50/30 dev eth0
+ip addr 203.0.113.13/30 dev eth1
 ip addr 172.16.0.58/30 dev eth2
 ip addr 172.16.0.54/30 dev eth3
 ip link set eth0 up
@@ -11,6 +12,7 @@ configure terminal
 router ospf
 ospf router-id 8.8.8.8
 network 172.16.0.0/26 area 0
+network 203.0.113.12/30 area 0
 exit
 interface eth0
 ip ospf cost 1
