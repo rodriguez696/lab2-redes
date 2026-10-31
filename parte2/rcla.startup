@@ -1,0 +1,13 @@
+ip addr add 10.72.8.1/26 dev eth4
+ip addr add 10.72.4.1/25 dev eth3
+ip addr add 10.72.0.1/23 dev eth2
+ip addr add 203.0.113.33/25 dev eth1
+ip link set eth1 up
+ip link set eth2 up
+ip link set eth3 up
+ip link set eth4 up
+
+ip route add 10.72.8.0/26 dev eth4
+ip route add 10.72.4.0/25 dev eth3
+ip route add default dev eth2
+ip route add 203.0.113.32/25 dev eth1
