@@ -2,9 +2,11 @@ systemctl start frr
 ip addr add 172.16.0.2/30 dev eth0
 ip addr add 172.16.0.17/30 dev eth1
 ip addr add 172.16.0.21/30 dev eth2
+ip addr add 172.16.0.62/30 dev eth3
 ip link set eth0 up
 ip link set eth1 up
 ip link set eth2 up
+ip link set eth3 up
 
 vtysh << 'EOF'
 configure terminal
@@ -21,6 +23,9 @@ interface eth1
 ip ospf cost 1
 exit
 interface eth2
+ip ospf cost 1
+exit
+interface eth3
 ip ospf cost 1
 exit
 exit
