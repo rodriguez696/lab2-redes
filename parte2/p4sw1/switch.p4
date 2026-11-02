@@ -57,12 +57,17 @@ control MyIngress(inout headers_t hdr,
         std_meta.mcast_grp = 1; 
     }
 
+    action drop() {
+        mark_to_drop(std_meta);
+    }
+
     table dmac {
         key = { hdr.ethernet.dstAddr : exact; }
 
         actions = {
             fwd;
             broadcast;
+            drop;
         }
 
         default_action = broadcast;
