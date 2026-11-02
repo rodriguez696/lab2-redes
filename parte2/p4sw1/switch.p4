@@ -22,6 +22,7 @@ struct headers_t {
 struct metadata_t {
 }
 
+
 /*************************************************************************
  *  Parser
  *************************************************************************/
@@ -48,7 +49,10 @@ control MyVerifyChecksum(inout headers_t hdr, inout metadata_t meta) {
 control MyIngress(inout headers_t hdr,
                   inout metadata_t meta,
                   inout standard_metadata_t std_meta) {
-    
+   
+
+    direct_counter(CounterType.packets) my_direct_counter;
+
     action fwd(bit<9> port) {
         std_meta.egress_spec = port;
     }
@@ -69,6 +73,8 @@ control MyIngress(inout headers_t hdr,
             broadcast;
             drop;
         }
+
+        counters = my_direct_counter;
 
         default_action = broadcast;
         size = 4096;
