@@ -92,7 +92,9 @@ control MyEgress(inout headers_t hdr,
                  inout metadata_t meta,
                  inout standard_metadata_t std_meta) {
     apply {
-        // TODO: completar por el grupo (si corresponde).
+	if(std_meta.egress_port == std_meta.ingress_port){
+		mark_to_drop(std_meta);
+	}
     }
 }
 

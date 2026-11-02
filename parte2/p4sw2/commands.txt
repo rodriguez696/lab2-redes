@@ -1,0 +1,7 @@
+mc_mgrp_create 2
+mc_node_create 0 1 2 3 4
+mc_node_associate 2 0
+
+table_add dmac fwd 12:23:60:04:13:6d => 2
+table_add dmac fwd ea:4c:14:47:94:eb => 3
+table_add dmac fwd 26:02:81:9a:88:be => 4

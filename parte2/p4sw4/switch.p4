@@ -45,13 +45,43 @@ control MyVerifyChecksum(inout headers_t hdr, inout metadata_t meta) {
 /*************************************************************************
  *  Ingress
  *************************************************************************/
+
 control MyIngress(inout headers_t hdr,
                   inout metadata_t meta,
                   inout standard_metadata_t std_meta) {
-    // TODO: completar por el grupo.
+   
+
+    direct_counter(CounterType.packets) my_direct_counter;
+
+    action fwd(bit<9> port) {
+        std_meta.egress_spec = port;
+    }
+
+    action broadcast() {
+        std_meta.mcast_grp = 4; 
+    }
+
+    action drop() {
+        mark_to_drop(std_meta);
+    }
+
+    table dmac {
+        key = { hdr.ethernet.dstAddr : exact; }
+
+        actions = {
+            fwd;
+            broadcast;
+            drop;
+        }
+
+        counters = my_direct_counter;
+
+        default_action = broadcast;
+        size = 4096;
+    }
 
     apply {
-        // TODO: completar por el grupo.
+        dmac.apply();
     }
 }
 
@@ -62,7 +92,9 @@ control MyEgress(inout headers_t hdr,
                  inout metadata_t meta,
                  inout standard_metadata_t std_meta) {
     apply {
-        // TODO: completar por el grupo (si corresponde).
+	if(std_meta.egress_port == std_meta.ingress_port){
+                mark_to_drop(std_meta);
+        }
     }
 }
 
