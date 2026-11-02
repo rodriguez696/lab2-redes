@@ -1,0 +1,4 @@
+table_add dmac forward 82:67:e1:fb:a4:fe => 1
+table_add dmac forward 56:80:f9:31:42:40 => 2
+table_add dmac forward 5e:24:70:51:1a:af => 3
+table_add dmac forward e6:f2:9f:31:9e:5a => 4

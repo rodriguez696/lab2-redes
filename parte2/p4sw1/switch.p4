@@ -48,10 +48,24 @@ control MyVerifyChecksum(inout headers_t hdr, inout metadata_t meta) {
 control MyIngress(inout headers_t hdr,
                   inout metadata_t meta,
                   inout standard_metadata_t std_meta) {
-    // TODO: completar por el grupo.
+    /* Cambiar mac destino y pasar a puerto x
+    action fwd(bit<9> port) {
+        std_meta.egress_spec = port;
+    }
+
+    table dmac {
+        key = { hdr.ethernet.dstAddr : exact; }
+
+        actions = {
+            fwd;
+        }
+
+        default_action = fwd;
+        size = 4096;
+    }
 
     apply {
-        // TODO: completar por el grupo.
+        dmac.apply();
     }
 }
 

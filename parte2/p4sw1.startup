@@ -5,3 +5,4 @@ simple_switch -i 1@eth0 -i 2@eth1 -i 3@eth2 -i 4@eth3 -i 5@eth4 /switch.json > /
 until simple_switch_CLI <<< "help" > /dev/null 2>&1; do sleep 1; done
 # Carga la configuracion del plano de control (entradas de tablas, etc.).
 simple_switch_CLI < /commands.txt
+
