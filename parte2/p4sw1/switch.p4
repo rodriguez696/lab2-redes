@@ -53,9 +53,8 @@ control MyIngress(inout headers_t hdr,
         std_meta.egress_spec = port;
     }
 
-     action flood() {
-        // Assign to a predefined multicast group configured in the control plane
-        standard_metadata.mcast_grp = 1; 
+    action broadcast() {
+        std_meta.mcast_grp = 1; 
     }
 
     table dmac {
@@ -63,9 +62,10 @@ control MyIngress(inout headers_t hdr,
 
         actions = {
             fwd;
+            broadcast;
         }
 
-        default_action = flood;
+        default_action = broadcast;
         size = 4096;
     }
 
