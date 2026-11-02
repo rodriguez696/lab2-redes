@@ -48,9 +48,14 @@ control MyVerifyChecksum(inout headers_t hdr, inout metadata_t meta) {
 control MyIngress(inout headers_t hdr,
                   inout metadata_t meta,
                   inout standard_metadata_t std_meta) {
-    /* Cambiar mac destino y pasar a puerto x
+    
     action fwd(bit<9> port) {
         std_meta.egress_spec = port;
+    }
+
+     action flood() {
+        // Assign to a predefined multicast group configured in the control plane
+        standard_metadata.mcast_grp = 1; 
     }
 
     table dmac {
@@ -60,7 +65,7 @@ control MyIngress(inout headers_t hdr,
             fwd;
         }
 
-        default_action = fwd;
+        default_action = flood;
         size = 4096;
     }
 
