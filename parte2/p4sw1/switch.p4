@@ -50,7 +50,7 @@ control MyIngress(inout headers_t hdr,
                   inout metadata_t meta,
                   inout standard_metadata_t std_meta) {
    
-
+    /* direct_counter contiene un contador de paquetes por entrada de la tabla */
     direct_counter(CounterType.packets) my_direct_counter;
 
     action fwd(bit<9> port) {
@@ -58,7 +58,7 @@ control MyIngress(inout headers_t hdr,
     }
 
     action broadcast() {
-        std_meta.mcast_grp = 1; 
+        std_meta.mcast_grp = 1;
     }
 
     action drop() {
@@ -76,6 +76,11 @@ control MyIngress(inout headers_t hdr,
 
         counters = my_direct_counter;
 
+        /* Paquetes sin match en dmac se distribuyen */
+        /* 
+        Se puede cambiar por drop si se agregan entradas en dmac con clave 
+        ff:ff:ff:ff:ff:ff y acción broadcast para que funcione ARP.
+        */
         default_action = broadcast;
         size = 4096;
     }
