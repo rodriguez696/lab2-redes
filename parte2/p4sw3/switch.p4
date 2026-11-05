@@ -19,8 +19,7 @@ struct headers_t {
     ethernet_t ethernet;
 }
 
-struct metadata_t {
-}
+struct metadata_t { }
 
 /*************************************************************************
  *  Parser
@@ -58,11 +57,35 @@ control MyIngress(inout headers_t hdr,
     }
 
     action broadcast() {
-        std_meta.mcast_grp = 3; 
+        std_meta.mcast_grp = 3;
     }
 
     action drop() {
         mark_to_drop(std_meta);
+    }
+
+    action filter() {
+        // capa 2:
+        // Si protocolo es ARP, dejar pasar
+        if (hdr.ethernet.etherType == 16w0x0806) {} 
+        // si puerto de salida no lleva a GW, mark_to_drop
+        else if (std_meta.egress_spec != 1) {
+            mark_to_drop(std_meta);
+        }
+        // capa3:
+        // si ip destino es otra cosa que servidor y puerto no es 80 o 445, mark_to_drop
+    }
+
+    table smac {
+        key = { hdr.ethernet.srcAddr : exact; }
+
+        actions = {
+            filter; 
+            NoAction;
+        }
+
+        default_action = NoAction;
+        size = 4096;
     }
 
     table dmac {
@@ -82,6 +105,7 @@ control MyIngress(inout headers_t hdr,
 
     apply {
         dmac.apply();
+        smac.apply();
     }
 }
 
