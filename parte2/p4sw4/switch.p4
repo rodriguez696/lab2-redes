@@ -15,8 +15,24 @@ header ethernet_t {
     bit<16> etherType;
 }
 
+//Cabeceras de TCP son de 20B
+header tcp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<128> other; //No nos interesa
+}
+
+//Dado que bits se leen secuencialmente, necesitamos ignorar bits de capa de red (salvo campo Protocolo)
+header ipv4_t {
+    bit<72> other1;
+    bit<8> protocol;
+    bit<80> other2;
+}
+
 struct headers_t {
     ethernet_t ethernet;
+    ipv4_t ipv4;
+    tcp_t tcp;
 }
 
 struct metadata_t {
@@ -31,7 +47,18 @@ parser MyParser(packet_in pkt,
                 inout standard_metadata_t std_meta) {
     state start {
         pkt.extract(hdr.ethernet);
+        pkt.extract(hdr.ipv4);
+        pkt.extract(hdr.tcp);
         transition accept;
+    }
+
+    state parse_ipv4 {
+        bit<32> fst_line = pkt.lookahead<bit<32>>();
+	bit<16> size_in_bytes = fst_line[31:16];
+        bit<32> size_in_bits = (bit<32>)size_in_bytes * 8;
+        
+        pkt.skip(32 + size_in_bits);
+        transition parse_tcp;
     }
 }
 
