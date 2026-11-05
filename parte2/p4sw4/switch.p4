@@ -24,9 +24,9 @@ header tcp_t {
 
 //Dado que bits se leen secuencialmente, necesitamos ignorar bits de capa de red (salvo campo Protocolo)
 header ipv4_t {
-    bit<16> other1;
-    bit<16> size_in_bytes;
-    bit<40> other2;
+    bit<4> other1;
+    bit<4> size_in_bytes;
+    bit<64> other2;
     bit<8> protocol;
     bit<80> other3;
 }
@@ -49,34 +49,44 @@ parser MyParser(packet_in pkt,
                 inout standard_metadata_t std_meta) {
     state start {
         pkt.extract(hdr.ethernet);
-        
-        transition parse_ipv4;
+       
+        transition select(hdr.ethernet.etherType) {
+            16w0x0800: parse_ipv4;
+            16w0x0806: accept;
+            default: est_reject;
+        }
+
     }
 
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
 
-        bit<32> size_in_bits = (bit<32>)ipv4.size_in_bytes * 8;
+        bit<32> size_in_bits = (bit<32>)hdr.ipv4.size_in_bytes * 8;
 
-        if(ipv4.protocol != 8w0x06){
-            transition reject;
+        if(size_in_bits > 32w160) {
+           pkt.advance(size_in_bits - 32w160);
         }
 
-        if(size_in_bits > 32w160){
-            pkt.skip(size_in_bits - 32w160);
+        transition select(hdr.ipv4.protocol){
+            8w0x06: parse_tcp;
+            default: accept;
         }
 
-        transition parse_tcp;
     }
 
-    state parse_tcp{
+    state parse_tcp {
         pkt.extract(hdr.tcp);
 
-        if(tcp.dstPort == 80 || tcp.dstPort == 443){
-            transition accept;
+        transition select(hdr.tcp.dstPort) {
+            80: accept;
+            443: accept;
+            default: est_reject;
         }
+    }
 
-        transition reject;
+    state est_reject {
+        verify(false, error.NoMatch);
+        transition accept;
     }
 }
 
@@ -126,7 +136,11 @@ control MyIngress(inout headers_t hdr,
     }
 
     apply {
-        dmac.apply();
+        if (std_meta.parser_error != error.NoError) {
+            mark_to_drop(std_meta); 
+        } else {
+            dmac.apply();
+        }
     }
 }
 
@@ -137,8 +151,8 @@ control MyEgress(inout headers_t hdr,
                  inout metadata_t meta,
                  inout standard_metadata_t std_meta) {
     apply {
-	if(std_meta.egress_port == std_meta.ingress_port){
-                mark_to_drop(std_meta);
+	    if(std_meta.egress_port == std_meta.ingress_port) {
+            mark_to_drop(std_meta);
         }
     }
 }
@@ -156,6 +170,8 @@ control MyComputeChecksum(inout headers_t hdr, inout metadata_t meta) {
 control MyDeparser(packet_out pkt, in headers_t hdr) {
     apply {
         pkt.emit(hdr.ethernet);
+        pkt.emit(hdr.ipv4);
+        pkt.emit(hdr.tcp);
     }
 }
 
