@@ -50,7 +50,8 @@ control MyIngress(inout headers_t hdr,
                   inout standard_metadata_t std_meta) {
    
 
-    direct_counter(CounterType.packets) my_direct_counter;
+    direct_counter(CounterType.packets) paquetes_puerto;
+    counter(1, CounterType.packets) paquetes_descartados;
 
     action fwd(bit<9> port) {
         std_meta.egress_spec = port;
@@ -71,6 +72,7 @@ control MyIngress(inout headers_t hdr,
         // si puerto de salida no lleva a GW, mark_to_drop
         else if (std_meta.egress_spec != 1) {
             mark_to_drop(std_meta);
+            paquetes_descartados.count(0);
         }
         // capa3:
         // si ip destino es otra cosa que servidor y puerto no es 80 o 445, mark_to_drop
@@ -97,7 +99,7 @@ control MyIngress(inout headers_t hdr,
             drop;
         }
 
-        counters = my_direct_counter;
+        counters = paquetes_puerto;
 
         default_action = broadcast;
         size = 4096;
