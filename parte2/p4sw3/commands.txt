@@ -2,9 +2,9 @@ mc_mgrp_create 3
 mc_node_create 0 1 2 3 4
 mc_node_associate 3 0
 
-table_add smac filter e2:a1:f9:f3:1f:eb =>
-table_add smac filter ea:4c:14:47:94:eb =>
-table_add smac filter 06:f0:d4:b2:18:db =>
+table_add smac filter e2:a1:f9:f3:1f:eb => 1 203.0.113.34
+table_add smac filter ea:4c:14:47:94:eb => 1 203.0.113.34
+table_add smac filter 06:f0:d4:b2:18:db => 1 203.0.113.34
 
 table_add dmac fwd 52:86:04:fa:ae:c2 => 1
 table_add dmac fwd e2:a1:f9:f3:1f:eb => 2

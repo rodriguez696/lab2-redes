@@ -15,13 +15,33 @@ header ethernet_t {
     bit<16> etherType;
 }
 
+//Cabeceras de TCP son de 20B
+header tcp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<128> other; //No nos interesa
+}
+
+//Dado que bits se leen secuencialmente, necesitamos ignorar bits de capa de red (salvo campo Protocolo)
+header ipv4_t {
+    bit<4> other1;
+    bit<4> size_in_bytes;
+    bit<64> other2;
+    bit<8> protocol;
+    bit<16> checksum;
+    bit<32> srcIP;
+    bit<32> dstIP;
+}
+
 struct headers_t {
     ethernet_t ethernet;
+    ipv4_t ipv4;
+    tcp_t tcp;
 }
 
 struct metadata_t { }
 
-/*************************************************************************
+/**************************************************************************
  *  Parser
  *************************************************************************/
 parser MyParser(packet_in pkt,
@@ -30,10 +50,44 @@ parser MyParser(packet_in pkt,
                 inout standard_metadata_t std_meta) {
     state start {
         pkt.extract(hdr.ethernet);
+       
+        transition select(hdr.ethernet.etherType) {
+            16w0x0800: parse_ipv4;
+            16w0x0806: accept;
+            default: est_reject;
+        }
+
+    }
+
+    state parse_ipv4 {
+        pkt.extract(hdr.ipv4);
+
+        bit<32> size_in_bits = (bit<32>)hdr.ipv4.size_in_bytes * 8;
+
+        if(size_in_bits > 32w160) {
+           pkt.advance(size_in_bits - 32w160);
+        }
+
+        transition select(hdr.ipv4.protocol){
+            8w0x06: parse_tcp;
+            default: accept;
+        }
+
+    }
+
+    state parse_tcp {
+        pkt.extract(hdr.tcp);
+
+        transition select(hdr.tcp.dstPort) {
+            default: accept;
+        }
+    }
+
+    state est_reject {
+        verify(false, error.NoMatch);
         transition accept;
     }
 }
-
 /*************************************************************************
  *  Verificacion de checksum
  *************************************************************************/
@@ -51,7 +105,8 @@ control MyIngress(inout headers_t hdr,
    
 
     direct_counter(CounterType.packets) paquetes_puerto;
-    counter(1, CounterType.packets) paquetes_descartados;
+    counter(1, CounterType.packets) paquetes_descartados_port;
+    counter(1, CounterType.packets) paquetes_descartados_ip;
 
     action fwd(bit<9> port) {
         std_meta.egress_spec = port;
@@ -65,17 +120,17 @@ control MyIngress(inout headers_t hdr,
         mark_to_drop(std_meta);
     }
 
-    action filter() {
-        // capa 2:
+    action filter(bit<9> port, bit<32> ipDest) {
         // Si protocolo es ARP, dejar pasar
         if (hdr.ethernet.etherType == 16w0x0806) {} 
         // si puerto de salida no lleva a GW, mark_to_drop
-        else if (std_meta.egress_spec != 1) {
+        else if (std_meta.egress_spec != port) {
             mark_to_drop(std_meta);
-            paquetes_descartados.count(0);
+            paquetes_descartados_port.count(0);
+        } else if (hdr.ipv4.dstIP != ipDest) {
+            mark_to_drop(std_meta);
+            paquetes_descartados_ip.count(0);
         }
-        // capa3:
-        // si ip destino es otra cosa que servidor y puerto no es 80 o 445, mark_to_drop
     }
 
     table smac {
@@ -137,6 +192,8 @@ control MyComputeChecksum(inout headers_t hdr, inout metadata_t meta) {
 control MyDeparser(packet_out pkt, in headers_t hdr) {
     apply {
         pkt.emit(hdr.ethernet);
+        pkt.emit(hdr.ipv4);
+        pkt.emit(hdr.tcp);
     }
 }
 
