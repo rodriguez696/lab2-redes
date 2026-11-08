@@ -131,7 +131,7 @@ control MyIngress(inout headers_t hdr,
 
         counters = my_direct_counter;
 
-        default_action = broadcast;
+        default_action = drop;
         size = 4096;
     }
 

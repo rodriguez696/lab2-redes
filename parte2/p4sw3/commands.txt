@@ -10,3 +10,4 @@ table_add dmac fwd 52:86:04:fa:ae:c2 => 1
 table_add dmac fwd e2:a1:f9:f3:1f:eb => 2
 table_add dmac fwd ea:4c:14:47:94:eb => 3
 table_add dmac fwd 06:f0:d4:b2:18:db => 4
+table_add dmac broadcast ff:ff:ff:ff:ff:ff =>

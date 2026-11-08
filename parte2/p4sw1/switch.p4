@@ -76,12 +76,7 @@ control MyIngress(inout headers_t hdr,
 
         counters = my_direct_counter;
 
-        /* Paquetes sin match en dmac se distribuyen */
-        /* 
-        Se puede cambiar por drop si se agregan entradas en dmac con clave 
-        ff:ff:ff:ff:ff:ff y acción broadcast para que funcione ARP.
-        */
-        default_action = broadcast;
+        default_action = drop;
         size = 4096;
     }
 
