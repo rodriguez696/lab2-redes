@@ -1,0 +1,12 @@
+ip addr add 203.0.113.2/30 dev eth0
+ip addr add 10.72.0.1/25 dev eth1
+ip addr add 203.0.113.5/30 dev eth2
+ip link set eth0 up
+ip link set eth1 up
+ip link set eth2 up
+
+ip route add 10.72.0.2 via 10.72.0.2 dev eth1
+ip route add 203.0.113.4/30 via 203.0.113.6 dev eth2
+ip route add default via 203.0.113.1 dev eth0
+
+iptables -t nat -A POSTROUTING -s 10.72.0.0/25 -o eth0 -j SNAT --to 203.0.113.2

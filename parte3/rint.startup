@@ -1,0 +1,16 @@
+ip addr add 8.8.8.1/24 dev eth0
+ip addr add 172.16.0.1/30 dev eth1
+ip addr add 172.16.0.5/30 dev eth2
+ip link set eth0 up
+ip link set eth1 up
+ip link set eth2 up
+
+echo "En este caso es trafico para cliente B por subdivision de IP publica"
+ip route add 203.0.113.0/29 via 172.16.0.6 dev eth2
+
+echo "Sino, es del cliente A"
+ip route add 203.0.113.8/30 via 172.16.0.2 dev eth1
+
+echo "Sino, redirigir DC (IP privadas no conoce rInt, solo a sus vecinos)"
+ip route add default via 8.8.8.8 dev eth0
+
