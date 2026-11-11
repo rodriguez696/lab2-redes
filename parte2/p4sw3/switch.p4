@@ -51,7 +51,10 @@ parser MyParser(packet_in pkt,
     state start {
         pkt.extract(hdr.ethernet);
        
-        transition parse_ipv4;
+        transition select(hdr.ethernet.etherType) {
+	    16w0x0800: parse_ipv4;
+	    default: accept;
+	}
     }
 
     state parse_ipv4 {
@@ -119,7 +122,7 @@ control MyIngress(inout headers_t hdr,
 	// si puerto de salida no lleva a GW, mark_to_drop
 	}else if (std_meta.egress_spec != port) {
             mark_to_drop(std_meta);
-            paquetes_descartados_switch_port.count(0);
+            paquetes_descartados__switch_port.count(0);
 	// Si dentro del paquete IP, el trafico generado es o bien un datagrama dirigido a una subred distinta de
 	// SERVERS, o bien es un segmento que no use TCP o lo use pero en puertos distintos a 80/443, descartar
         } else if (hdr.ipv4.dstIP != ipGw && 
@@ -160,7 +163,7 @@ control MyIngress(inout headers_t hdr,
     apply {
 	if (std_meta.parser_error != error.NoError) {
 	    mark_to_drop(std_meta);
-	else {
+	}else {
             dmac.apply();
             smac.apply();
 	}

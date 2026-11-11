@@ -1,0 +1,6 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: this is the direct counter for table MyIngress.dmac
+paquetes_puerto[2]= (294 bytes, 3 packets)
+RuntimeCmd: 

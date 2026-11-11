@@ -15,28 +15,9 @@ header ethernet_t {
     bit<16> etherType;
 }
 
-//Cabeceras de TCP son de 20B
-header tcp_t {
-    bit<16> srcPort;
-    bit<16> dstPort;
-    bit<128> other; //No nos interesa
-}
-
-//Dado que se lee un flujo de bits, necesitamos ignorar bits de campos que no nos interesan
-header ipv4_t {
-    bit<4> other1;
-    bit<4> size_in_bytes;
-    bit<64> other2;
-    bit<8> protocol;
-    bit<16> other3;
-    bit<32> srcAddr;
-    bit<32> dstAddr;
-}
 
 struct headers_t {
     ethernet_t ethernet;
-    ipv4_t ipv4;
-    tcp_t tcp;
 }
 
 struct metadata_t {
@@ -52,27 +33,9 @@ parser MyParser(packet_in pkt,
     state start {
         pkt.extract(hdr.ethernet);
        
-        transition parse_ipv4;
-    }
-
-    state parse_ipv4 {
-        pkt.extract(hdr.ipv4);
-
-        bit<32> size_in_bits = (bit<32>)hdr.ipv4.size_in_bytes * 8;
-
-        if(size_in_bits > 32w160) {
-           pkt.advance(size_in_bits - 32w160);
-        }
-
-        transition parse_tcp;
-
-    }
-
-    state parse_tcp {
-        pkt.extract(hdr.tcp);
-
         transition accept;
     }
+
 }
 
 /*************************************************************************
@@ -105,21 +68,6 @@ control MyIngress(inout headers_t hdr,
         mark_to_drop(std_meta);
     }
 
-    table access_control_list {
-        key = {
-            hdr.ipv4.srcAddr : lpm;
-            hdr.tcp.dstPort : exact;
-        }
-
-        actions = {
-            drop;
-            NoAction;
-        }
-
-        size = 4096;
-        default_action = NoAction; 
-    }
-
     table dmac {
         key = { hdr.ethernet.dstAddr : exact; }
 
@@ -139,7 +87,6 @@ control MyIngress(inout headers_t hdr,
         if (std_meta.parser_error != error.NoError) {
             mark_to_drop(std_meta); 
         } else {
-	    access_control_list.apply();
             dmac.apply();
         }
     }
@@ -171,8 +118,6 @@ control MyComputeChecksum(inout headers_t hdr, inout metadata_t meta) {
 control MyDeparser(packet_out pkt, in headers_t hdr) {
     apply {
         pkt.emit(hdr.ethernet);
-        pkt.emit(hdr.ipv4);
-        pkt.emit(hdr.tcp);
     }
 }
 

@@ -6,5 +6,3 @@ table_add dmac fwd ea:4b:74:d5:34:37 => 1
 table_add dmac fwd 26:57:2c:6e:ef:0a => 2
 table_add dmac broadcast ff:ff:ff:ff:ff:ff =>
 
-table_add access_control_list drop 10.72.0.0/23 80 =>
-table_add access_control_list drop 10.72.0.0/23 443 =>
