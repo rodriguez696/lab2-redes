@@ -51,12 +51,7 @@ parser MyParser(packet_in pkt,
     state start {
         pkt.extract(hdr.ethernet);
        
-        transition select(hdr.ethernet.etherType) {
-            16w0x0800: parse_ipv4;
-            16w0x0806: accept;
-            default: est_reject;
-        }
-
+        transition parse_ipv4;
     }
 
     state parse_ipv4 {
@@ -78,16 +73,10 @@ parser MyParser(packet_in pkt,
     state parse_tcp {
         pkt.extract(hdr.tcp);
 
-        transition select(hdr.tcp.dstPort) {
-            default: accept;
-        }
-    }
-
-    state est_reject {
-        verify(false, error.NoMatch);
         transition accept;
     }
 }
+
 /*************************************************************************
  *  Verificacion de checksum
  *************************************************************************/
@@ -105,8 +94,8 @@ control MyIngress(inout headers_t hdr,
    
 
     direct_counter(CounterType.packets) paquetes_puerto;
-    counter(1, CounterType.packets) paquetes_descartados_port;
-    counter(1, CounterType.packets) paquetes_descartados_ip;
+    counter(1, CounterType.packets) paquetes_descartados__switch_port;
+    counter(1, CounterType.packets) paquetes_descartados__invalid_traffic;
 
     action fwd(bit<9> port) {
         std_meta.egress_spec = port;
@@ -120,16 +109,24 @@ control MyIngress(inout headers_t hdr,
         mark_to_drop(std_meta);
     }
 
-    action filter(bit<9> port, bit<32> ipDest) {
+    action filter(bit<9> port, bit<32> ipGw, bit<32> ipDest) {
         // Si protocolo es ARP, dejar pasar
-        if (hdr.ethernet.etherType == 16w0x0806) {} 
-        // si puerto de salida no lleva a GW, mark_to_drop
-        else if (std_meta.egress_spec != port) {
+        if (hdr.ethernet.etherType == 16w0x0806) { 
+	// Si el protocolo indicado en la trama no es ARP o IP, descartar
+	}else if (hdr.ethernet.etherType != 16w0x0800) {
+	    mark_to_drop(std_meta);
+	    paquetes_descartados__invalid_traffic.count(0);
+	// si puerto de salida no lleva a GW, mark_to_drop
+	}else if (std_meta.egress_spec != port) {
             mark_to_drop(std_meta);
-            paquetes_descartados_port.count(0);
-        } else if (hdr.ipv4.dstIP != ipDest) {
+            paquetes_descartados_switch_port.count(0);
+	// Si dentro del paquete IP, el trafico generado es o bien un datagrama dirigido a una subred distinta de
+	// SERVERS, o bien es un segmento que no use TCP o lo use pero en puertos distintos a 80/443, descartar
+        } else if (hdr.ipv4.dstIP != ipGw && 
+		   (hdr.ipv4.dstIP != ipDest || (hdr.ipv4.protocol != 0x6 ||
+		   (hdr.tcp.dstPort != 16w80 && hdr.tcp.dstPort != 16w443)))) {
             mark_to_drop(std_meta);
-            paquetes_descartados_ip.count(0);
+            paquetes_descartados__invalid_traffic.count(0);
         }
     }
 
@@ -161,8 +158,12 @@ control MyIngress(inout headers_t hdr,
     }
 
     apply {
-        dmac.apply();
-        smac.apply();
+	if (std_meta.parser_error != error.NoError) {
+	    mark_to_drop(std_meta);
+	else {
+            dmac.apply();
+            smac.apply();
+	}
     }
 }
 

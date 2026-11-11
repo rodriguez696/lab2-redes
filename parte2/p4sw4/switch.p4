@@ -22,13 +22,15 @@ header tcp_t {
     bit<128> other; //No nos interesa
 }
 
-//Dado que bits se leen secuencialmente, necesitamos ignorar bits de capa de red (salvo campo Protocolo)
+//Dado que se lee un flujo de bits, necesitamos ignorar bits de campos que no nos interesan
 header ipv4_t {
     bit<4> other1;
     bit<4> size_in_bytes;
     bit<64> other2;
     bit<8> protocol;
-    bit<80> other3;
+    bit<16> other3;
+    bit<32> srcAddr;
+    bit<32> dstAddr;
 }
 
 struct headers_t {
@@ -50,12 +52,7 @@ parser MyParser(packet_in pkt,
     state start {
         pkt.extract(hdr.ethernet);
        
-        transition select(hdr.ethernet.etherType) {
-            16w0x0800: parse_ipv4;
-            16w0x0806: accept;
-            default: est_reject;
-        }
-
+        transition parse_ipv4;
     }
 
     state parse_ipv4 {
@@ -67,25 +64,13 @@ parser MyParser(packet_in pkt,
            pkt.advance(size_in_bits - 32w160);
         }
 
-        transition select(hdr.ipv4.protocol){
-            8w0x06: parse_tcp;
-            default: accept;
-        }
+        transition parse_tcp;
 
     }
 
     state parse_tcp {
         pkt.extract(hdr.tcp);
 
-        transition select(hdr.tcp.dstPort) {
-            80: accept;
-            443: accept;
-            default: est_reject;
-        }
-    }
-
-    state est_reject {
-        verify(false, error.NoMatch);
         transition accept;
     }
 }
@@ -120,6 +105,21 @@ control MyIngress(inout headers_t hdr,
         mark_to_drop(std_meta);
     }
 
+    table access_control_list {
+        key = {
+            hdr.ipv4.srcAddr : lpm;
+            hdr.tcp.dstPort : exact;
+        }
+
+        actions = {
+            drop;
+            NoAction;
+        }
+
+        size = 4096;
+        default_action = NoAction; 
+    }
+
     table dmac {
         key = { hdr.ethernet.dstAddr : exact; }
 
@@ -139,6 +139,7 @@ control MyIngress(inout headers_t hdr,
         if (std_meta.parser_error != error.NoError) {
             mark_to_drop(std_meta); 
         } else {
+	    access_control_list.apply();
             dmac.apply();
         }
     }
