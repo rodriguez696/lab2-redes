@@ -1,0 +1,5 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: paquetes_descartados__invalid_traffic[0]= (5324 bytes, 70 packets)
+RuntimeCmd: 

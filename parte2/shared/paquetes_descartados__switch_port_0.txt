@@ -1,0 +1,5 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: paquetes_descartados__switch_port[0]= (294 bytes, 3 packets)
+RuntimeCmd: 
