@@ -2,7 +2,7 @@ systemctl start frr
 ip addr add 172.16.0.22/30 dev eth0
 ip addr add 172.16.0.34/30 dev eth1
 ip addr add 172.16.0.41/30 dev eth2
-ip addr add 203.0.113.9/30 dev eth3
+ip addr add 203.0.113.41/30 dev eth3
 ip link set eth0 up
 ip link set eth1 up
 ip link set eth2 up
@@ -10,11 +10,11 @@ ip link set eth3 up
 
 vtysh << 'EOF'
 configure terminal
-ip route 203.0.113.32/27 203.0.113.10
+ip route 203.0.113.32/27 203.0.113.42
 router ospf
 ospf router-id 3.3.3.3
 network 172.16.0.0/26 area 0
-network 203.0.113.8/30 area 0
+network 203.0.113.40/30 area 0
 redistribute static
 exit
 interface eth0

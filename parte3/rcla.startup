@@ -1,9 +1,9 @@
-ip addr add 203.0.113.10/30 dev eth4
+ip addr add 203.0.113.42/30 dev eth4
 ip addr add 10.72.8.1/26 dev eth0
 ip addr add 10.72.4.1/25 dev eth1
 ip addr add 10.72.0.1/23 dev eth2
 ip addr add 203.0.113.33/27 dev eth3
-ip addr add 203.0.113.14/30 dev eth5
+ip addr add 203.0.113.46/30 dev eth5
 ip link set eth0 up
 ip link set eth1 up
 ip link set eth2 up
@@ -15,8 +15,8 @@ ip route add 10.72.8.0/26 dev eth0
 ip route add 10.72.4.0/25 dev eth1
 ip route add 10.72.0.0/23 dev eth2
 ip route add 203.0.113.32/27 dev eth3
-ip route add default via 203.0.113.9 dev eth4 metric 10
-ip route add default via 203.0.113.13 dev eth5
+ip route add default via 203.0.113.41 dev eth4 metric 10
+ip route add default via 203.0.113.45 dev eth5
 
-iptables -t nat -A POSTROUTING -s 10.72.0.0/16 -o eth4 -j SNAT --to 203.0.113.10
-iptables -t nat -A POSTROUTING -s 10.72.0.0/16 -o eth5 -j SNAT --to 203.0.113.14
+iptables -t nat -A POSTROUTING -s 10.72.0.0/16 -o eth4 -j SNAT --to 203.0.113.42
+iptables -t nat -A POSTROUTING -s 10.72.0.0/16 -o eth5 -j SNAT --to 203.0.113.46
