@@ -8,7 +8,7 @@ a2ensite default-ssl > /dev/null
 service apache2 start
 ###
 
-ip addr add 203.0.113.34/25 dev eth0
+ip addr add 203.0.113.34/27 dev eth0
 ip link set eth0 up
 
-ip route add default dev eth0
+ip route add default via 203.0.113.33 dev eth0

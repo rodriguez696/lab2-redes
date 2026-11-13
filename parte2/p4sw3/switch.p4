@@ -22,6 +22,7 @@ struct headers_t {
 struct metadata_t {
 }
 
+
 /*************************************************************************
  *  Parser
  *************************************************************************/
@@ -48,10 +49,39 @@ control MyVerifyChecksum(inout headers_t hdr, inout metadata_t meta) {
 control MyIngress(inout headers_t hdr,
                   inout metadata_t meta,
                   inout standard_metadata_t std_meta) {
-    // TODO: completar por el grupo.
+   
+    /* direct_counter contiene un contador de paquetes por entrada de la tabla */
+    direct_counter(CounterType.packets) paquetes_puerto;
+
+    action fwd(bit<9> port) {
+        std_meta.egress_spec = port;
+    }
+
+    action broadcast() {
+        std_meta.mcast_grp = 3;
+    }
+
+    action drop() {
+        mark_to_drop(std_meta);
+    }
+
+    table dmac {
+        key = { hdr.ethernet.dstAddr : exact; }
+
+        actions = {
+            fwd;
+            broadcast;
+            drop;
+        }
+
+        counters = paquetes_puerto;
+
+        default_action = drop;
+        size = 4096;
+    }
 
     apply {
-        // TODO: completar por el grupo.
+        dmac.apply();
     }
 }
 
@@ -62,7 +92,9 @@ control MyEgress(inout headers_t hdr,
                  inout metadata_t meta,
                  inout standard_metadata_t std_meta) {
     apply {
-        // TODO: completar por el grupo (si corresponde).
+	if(std_meta.egress_port == std_meta.ingress_port){
+		mark_to_drop(std_meta);
+	}
     }
 }
 
